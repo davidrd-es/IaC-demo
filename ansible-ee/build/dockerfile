@@ -1,0 +1,51 @@
+FROM quay.io/ansible/awx-ee:23.0.0
+
+USER root
+
+# install OS binaries
+RUN yum -y install \
+ca-certificates \
+gcc \
+git \
+git-lfs \
+krb5-devel \
+krb5-libs \
+krb5-workstation \
+libcurl-devel \
+libxml2-devel \
+openssl-devel \
+python3-jmespath \
+python3-netaddr \
+python3-passlib \
+python3-pycurl \
+qemu-img
+
+#python39-devel \
+#python39-pytz \
+#python39-pyyaml \
+#python39-requests \
+
+# add Python dependencies and Ansible
+# Galary dependencies
+ADD requirements.yml /tmp/requirements.yml
+ADD requirements.txt /tmp/requirements.txt
+
+# upgrade pip
+RUN /usr/bin/python3 -m pip install --upgrade pip
+
+# install Ansible Galaxy collections
+RUN ansible-galaxy collection install -r /tmp/requirements.yml --collections-path /usr/share/ansible/collections
+
+# install Python dependencies
+RUN pip install -r /tmp/requirements.txt
+
+# add certificates
+
+RUN git clone https://github.com/nutanix/nutanix.ansible.git
+RUN ansible-galaxy collection build nutanix.ansible
+RUN ansible-galaxy collection install nutanix-ncp-1.9.0.tar.gz --collections-path /usr/share/ansible/collections
+
+RUN update-ca-trust force-enable
+RUN chmod -R 0777 /usr/share/ansible/collections 
+
+USER 1000

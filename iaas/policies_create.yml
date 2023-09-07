@@ -1,0 +1,18 @@
+---
+- name: Policy based routing - NACLs
+  hosts: localhost
+  gather_facts: false
+  collections:
+    - nutanix.ncp
+  module_defaults:
+    group/nutanix.ncp.ntnx:
+      nutanix_host: 10.0.0.1
+      nutanix_username: superuser
+      nutanix_password: Nutanix/4u
+      validate_certs: false
+  tasks:
+    - name: Include vars file
+      include_vars:
+        file: vars.yml
+    - include_role:
+        name: pbr

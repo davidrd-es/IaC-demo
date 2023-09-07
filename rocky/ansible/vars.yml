@@ -1,0 +1,21 @@
+---
+cluster:
+  name: mycluster
+project:
+  name: development
+network:
+  name: vlan10
+  ipaddress: 172.30.0.168
+  netmask: 24
+  gateway: 172.30.0.1
+  domain_search: ["sample.local"]
+  dns_servers: ["10.30.45.3", "10.70.1.17"]
+  domain_name: "sample.local"
+vmconfig:
+  name: testansible-2
+osconfig:
+  rootpassword: Nutanix2023!
+  interfaceName: ens3
+  adminuser: david
+  adminuserpassword: Nutanix2023!
+

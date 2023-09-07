@@ -1,0 +1,113 @@
+---
+  - name: Create Cloud-init Script file
+    copy:
+      dest: "cloud_init.yml"
+      content: |
+        #cloud-config
+        hostname: {{ vmconfig.name }}
+        fqdn: {{ vmconfig.name }}.{{ network.domain_name }}
+        users:
+          - name: {{ osconfig.adminuser }}
+            sudo: ['ALL=(ALL) NOPASSWD:ALL']
+        chpasswd:
+          list: |
+            root:{{ osconfig.rootpassword }}
+            {{ osconfig.adminuser }}:{{ osconfig.adminuserpassword }}
+          expire: False
+        ssh_pwauth: true
+        write_files:
+            - content: |
+                [connection]
+                id={{ osconfig.interfaceName }}-mgmt
+                type=ethernet
+                interface-name={{ osconfig.interfaceName }}
+                
+                [ethernet]
+                
+                [ipv4]
+                address1={{ network.ipaddress }}/{{ network.netmask }},{{ network.gateway }}
+                dns={{ network.dns_servers.0 }};{{ network.dns_servers.1 }}
+                may-fail=false
+                method=manual
+                
+                [ipv6]
+                method=disabled
+          
+                [proxy]
+          
+              path: /etc/NetworkManager/system-connections/{{ osconfig.interfaceName }}-mgmt.nmconnection
+              permissions: "0600"
+        runcmd:
+          - [nmcli, con, del, {{ osconfig.interfaceName }}]
+          - [systemctl, mask, cloud-init-local, cloud-init, cloud-config, cloud-final]
+          - [systemctl, restart, NetworkManager]
+          #- [eject]
+          #- [reboot]
+##########################################################################
+  - name: VM with AHV Image and customization 
+    ntnx_vms:
+      state: present
+      project:
+        name: "{{ project.name }}"
+      name: "{{ vmconfig.name }}"
+      desc: "VM with cluster, network, category, disk with Ubuntu image, guest customization "
+      categories:
+        AppType:
+          - Default
+        Environment:
+          - Dev
+      cluster:
+        name: "{{ cluster.name }}"
+      networks:
+        - is_connected: True
+          subnet:
+            name: "{{ network.name }}"
+      disks:
+        - type: "DISK"
+          size_gb: 80
+          bus: "SATA"
+          clone_image:
+            name: rocky-9.1-20230615111512 #"{{ ubuntu }}"
+      vcpus: 2
+      cores_per_vcpu: 1
+      memory_gb: 2
+      guest_customization:
+        type: "sysprep"
+        script_path: "./cloud_init.yml"
+        is_overridable: True
+    register: result
+
+  - name: Creation Status
+    assert:
+      that:
+        - result.response is defined
+        - result.response.status.state == 'COMPLETE'
+        - result.response.metadata.categories_mapping["AppType"] == ["Default"]
+        - result.response.metadata.categories_mapping["Environment"] == ["Dev"]
+      fail_msg: 'Unable to Create VM with Ubuntu image and different specifications  '
+      success_msg: 'VM created successfully '
+    
+  #- set_fact:
+  #    todelete: '{{ todelete + [  result["response"]["metadata"]["uuid"] ] }}'
+  #  when: result.response.status.state == 'COMPLETE'
+
+  #- name: Setting Variables
+  #  set_fact:
+  #    vm_name: ""
+      
+  - name: List vms using name filter criteria
+    ntnx_vms_info:
+      filter: 
+        vm_name: "{{ vmconfig.name }}"
+      kind: vm
+    register: result
+    ignore_errors: True
+  
+  #- name: List vms using length, offset and ascending vm_name sorting 
+  #  ntnx_vms_info:
+  #    length: 10
+  #    offset: 1
+  #    sort_order: "ASCENDING"
+  #    sort_attribute: "vm_name"
+  #  register: result
+  #  ignore_errors: True
